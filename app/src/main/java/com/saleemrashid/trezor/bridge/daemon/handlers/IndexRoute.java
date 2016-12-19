@@ -6,6 +6,8 @@ import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.NanoHTTPD.Response.Status;
 
 public class IndexRoute extends JsonHandler {
+    public static final String URL = "/";
+
     @Override
     public Object getJson() {
         /* TODO: Use real data */

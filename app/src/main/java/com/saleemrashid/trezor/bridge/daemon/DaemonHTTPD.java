@@ -24,6 +24,6 @@ public class DaemonHTTPD extends RouterNanoHTTPD {
         setNotImplementedHandler(NotImplementedHandler.class);
         setNotFoundHandler(Error404UriHandler.class);
 
-        addRoute("/", IndexRoute.class);
+        addRoute(IndexRoute.URL, IndexRoute.class);
     }
 }
