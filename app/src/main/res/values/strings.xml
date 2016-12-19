@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">TREZOR Bridge</string>
     <string name="open_in_browser">Open in browser</string>
+    <string name="daemon_notification_text">TREZOR Bridge is running</string>
 </resources>

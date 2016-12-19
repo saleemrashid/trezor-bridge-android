@@ -1,7 +1,9 @@
 package com.saleemrashid.trezor.bridge;
 
 import android.content.ComponentName;
+import android.content.Intent;
 import android.graphics.BitmapFactory;
+import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.customtabs.CustomTabsClient;
@@ -19,8 +21,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static final Uri WALLET_URI = Uri.parse("https://wallet.trezor.io/");
 
-    private CustomTabsSession mSession;
-    private CustomTabsServiceConnection mConnection;
+    private CustomTabsSession mSession = null;
+    private CustomTabsServiceConnection mConnection = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,25 +43,32 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-
-        if (getIntent().getAction() != null && getIntent().getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
-            Log.v(TAG, "USB device attached");
-
-            final Intent intent = new Intent(this, DaemonService.class);
-            intent.putExtra(UsbManager.EXTRA_DEVICE, getIntent().getParcelableExtra(UsbManager.EXTRA_DEVICE));
-            startService(intent);
-        }
-    }
-
-    @Override
     protected void onDestroy() {
         Log.v(TAG, "Activity destroyed");
 
         unbindCustomTabs();
 
         super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        Log.v(TAG, "Activity resumed");
+
+        final Intent intent = getIntent();
+        if (intent != null) {
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
+                Log.v(TAG, "Received ACTION_USB_DEVICE_ATTACHED");
+
+                /* Forward intent to daemon */
+                final Intent daemonIntent = new Intent(intent);
+                daemonIntent.setClass(this, DaemonService.class);
+
+                startService(daemonIntent);
+            }
+        }
+
+        super.onResume();
     }
 
     /**
