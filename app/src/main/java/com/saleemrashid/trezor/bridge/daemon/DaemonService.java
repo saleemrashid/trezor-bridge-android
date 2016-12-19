@@ -247,6 +247,7 @@ public class DaemonService extends Service {
             mServer.makeSecure(mSSLSocketFactory, null);
 
             /* Shouldn't run as daemon thread */
+            Log.v(TAG, "Starting HTTP server");
             mServer.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
         } catch (IOException e) {
             Log.e(TAG, "Could not start server", e);
@@ -263,6 +264,8 @@ public class DaemonService extends Service {
         new Thread(new Runnable() {
             @Override
             public void run() {
+                Log.v(TAG, "Stopping HTTP server");
+
                 /* Closing the socket causes android.os.NetworkOnMainThreadException */
                 mServer.stop();
             }
