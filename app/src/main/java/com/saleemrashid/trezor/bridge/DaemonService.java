@@ -26,12 +26,6 @@ public class DaemonService extends Service {
     public static final Uri SSL_CERTIFICATE_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.crt");
     public static final Uri SSL_PRIVATE_KEY_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.key");
 
-    private DownloadManager mDownloadManager;
-
-    /* DownloadManager IDs */
-    private long mCertificateDownloadId;
-    private long mPrivateKeyDownloadId;
-
     private BroadcastReceiver mReceiver = null;
 
     private final Map<String, UsbDevice> mDevices = new HashMap<>();
@@ -41,24 +35,17 @@ public class DaemonService extends Service {
         super.onCreate();
         Log.v(TAG, "Service created");
 
-        mDownloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        new DownloadHelper(new DownloadHelper.Callback() {
+            @Override
+            void onComplete(Map<Uri, FileInputStream> streams) {
 
-        mCertificateDownloadId = startDownload(SSL_CERTIFICATE_URI, R.string.ssl_certificate_title);
-        mPrivateKeyDownloadId = startDownload(SSL_PRIVATE_KEY_URI, R.string.ssl_private_key_title);
+
+
+
+
 
         startForeground();
-        registerDetachReceiver();
-        startServer();
-    }
-
-    private long startDownload(final Uri uri, int title) {
-        Log.i(TAG, "Starting download: " + uri);
-
-        final DownloadManager.Request request = new DownloadManager.Request(uri)
-                .setTitle(getResources().getText(title))
-                .setVisibleInDownloadsUi(false);
-
-        return mDownloadManager.enqueue(request);
+        registerReceiver();
     }
 
     @Override
@@ -66,8 +53,8 @@ public class DaemonService extends Service {
         Log.v(TAG, "Service called (startId is " + startId + ")");
         super.onStartCommand(intent, flags, startId);
 
-        if (!UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
-            Log.e(TAG, "Action is not ACTION_USB_DEVICE_ATTACHED");
+        if (intent == null || !UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
+            Log.e(TAG, "Intent is missing or action is not ACTION_USB_DEVICE_ATTACHED");
 
             stopIfNoDevices();
 
@@ -145,7 +132,7 @@ public class DaemonService extends Service {
         super.onDestroy();
     }
 
-    private void registerDetachReceiver() {
+    private void registerReceiver() {
         if (mReceiver == null) {
             Log.v(TAG, "Registering BroadcastReceiver");
 
@@ -175,16 +162,6 @@ public class DaemonService extends Service {
                         } else {
                             Log.i(TAG, "Device was not registered");
                         }
-                    } else if (DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
-                        long downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-
-                        if (downloadId != mCertificateDownloadId && downloadId != mPrivateKeyDownloadId) {
-                            return;
-                        }
-
-                        Log.i(TAG, "Download completed");
-
-                        /* TODO: Consume the downloads */
                     }
                 }
             };
