@@ -2,4 +2,7 @@
     <string name="app_name">TREZOR Bridge</string>
     <string name="open_in_browser">Open in browser</string>
     <string name="daemon_notification_text">TREZOR Bridge is running</string>
+
+    <string name="ssl_certificate_title">TREZOR Bridge SSL Certificate</string>
+    <string name="ssl_private_key_title">TREZOR Bridge SSL Key</string>
 </resources>

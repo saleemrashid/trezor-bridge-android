@@ -1,5 +1,6 @@
 package com.saleemrashid.trezor.bridge;
 
+import android.app.DownloadManager;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -9,6 +10,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
@@ -21,7 +23,16 @@ import java.util.Map;
 public class DaemonService extends Service {
     private static final String TAG = DaemonService.class.getSimpleName();
 
-    private BroadcastReceiver mDetachReceiver = null;
+    public static final Uri SSL_CERTIFICATE_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.crt");
+    public static final Uri SSL_PRIVATE_KEY_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.key");
+
+    private DownloadManager mDownloadManager;
+
+    /* DownloadManager IDs */
+    private long mCertificateDownloadId;
+    private long mPrivateKeyDownloadId;
+
+    private BroadcastReceiver mReceiver = null;
 
     private final Map<String, UsbDevice> mDevices = new HashMap<>();
 
@@ -30,10 +41,24 @@ public class DaemonService extends Service {
         super.onCreate();
         Log.v(TAG, "Service created");
 
+        mDownloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+
+        mCertificateDownloadId = startDownload(SSL_CERTIFICATE_URI, R.string.ssl_certificate_title);
+        mPrivateKeyDownloadId = startDownload(SSL_PRIVATE_KEY_URI, R.string.ssl_private_key_title);
+
         startForeground();
         registerDetachReceiver();
+        startServer();
+    }
 
-        /* TODO: Start WorkerThread and HTTP server */
+    private long startDownload(final Uri uri, int title) {
+        Log.i(TAG, "Starting download: " + uri);
+
+        final DownloadManager.Request request = new DownloadManager.Request(uri)
+                .setTitle(getResources().getText(title))
+                .setVisibleInDownloadsUi(false);
+
+        return mDownloadManager.enqueue(request);
     }
 
     @Override
@@ -121,47 +146,64 @@ public class DaemonService extends Service {
     }
 
     private void registerDetachReceiver() {
-        if (mDetachReceiver == null) {
-            Log.v(TAG, "Registering BroadcastReceiver for ACTION_USB_DEVICE_DETACHED");
+        if (mReceiver == null) {
+            Log.v(TAG, "Registering BroadcastReceiver");
 
-            mDetachReceiver = new BroadcastReceiver() {
+            final IntentFilter filter = new IntentFilter();
+
+            filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+            filter.addAction(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+
+            mReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    Log.i(TAG, "Received ACTION_USB_DEVICE_DETACHED");
+                    if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())) {
+                        Log.i(TAG, "Received ACTION_USB_DEVICE_DETACHED");
 
-                    final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                        final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
-                    if (device == null) {
-                        Log.e(TAG, "Intent missing EXTRA_DEVICE");
+                        if (device == null) {
+                            Log.e(TAG, "Intent missing EXTRA_DEVICE");
 
-                        return;
-                    }
+                            return;
+                        }
 
-                    if (isDeviceRegistered(device)) {
-                        unregisterDevice(device);
+                        if (isDeviceRegistered(device)) {
+                            unregisterDevice(device);
 
-                        stopIfNoDevices();
-                    } else {
-                        Log.i(TAG, "Device was not registered");
+                            stopIfNoDevices();
+                        } else {
+                            Log.i(TAG, "Device was not registered");
+                        }
+                    } else if (DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
+                        long downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+
+                        if (downloadId != mCertificateDownloadId && downloadId != mPrivateKeyDownloadId) {
+                            return;
+                        }
+
+                        Log.i(TAG, "Download completed");
+
+                        /* TODO: Consume the downloads */
                     }
                 }
             };
 
-            registerReceiver(mDetachReceiver, new IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED));
+            registerReceiver(mReceiver, filter);
         } else {
-            Log.w(TAG, "Cannot register for ACTION_USB_DEVICE_DETACHED, already registered");
+            Log.w(TAG, "Cannot register BroadcastReceiver, already registered");
         }
     }
 
     private void unregisterDetachReceiver() {
-        if (mDetachReceiver != null) {
-            Log.v(TAG, "Unregistering BroadcastReceiver for ACTION_USB_DEVICE_DETACHED");
+        if (mReceiver != null) {
+            Log.v(TAG, "Unregistering BroadcastReceiver");
 
-            unregisterReceiver(mDetachReceiver);
+            unregisterReceiver(mReceiver);
 
-            mDetachReceiver = null;
+            mReceiver = null;
         } else {
-            Log.w(TAG, "Cannot unregister for ACTION_USB_DEVICE_DETACHED, not registered");
+            Log.w(TAG, "Cannot unregister BroadcastReceiver, not registered");
         }
     }
 
