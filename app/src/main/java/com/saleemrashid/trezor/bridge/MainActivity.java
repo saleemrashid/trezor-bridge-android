@@ -24,6 +24,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.v(TAG, "Activity created");
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -39,7 +41,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (getIntent().getAction() != null && getIntent().getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
+            Log.v(TAG, "USB device attached");
+
+            final Intent intent = new Intent(this, DaemonService.class);
+            intent.putExtra(UsbManager.EXTRA_DEVICE, getIntent().getParcelableExtra(UsbManager.EXTRA_DEVICE));
+            startService(intent);
+        }
+    }
+
+    @Override
     protected void onDestroy() {
+        Log.v(TAG, "Activity destroyed");
+
         unbindCustomTabs();
 
         super.onDestroy();
@@ -50,12 +67,12 @@ public class MainActivity extends AppCompatActivity {
      */
     private void bindCustomTabs() {
         if (mConnection == null) {
-            Log.i(TAG, "bindCustomTabs");
+            Log.v(TAG, "Binding to Custom Tabs Service");
 
             mConnection = new CustomTabsServiceConnection() {
                 @Override
                 public void onCustomTabsServiceConnected(ComponentName name, CustomTabsClient client) {
-                    Log.i(TAG, "onCustomTabsServiceConnected");
+                    Log.v(TAG, "Connected to Custom Tabs Service");
 
                     client.warmup(0);
 
@@ -65,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onServiceDisconnected(ComponentName name) {
-                    Log.i(TAG, "onServiceDisconnected");
+                    Log.v(TAG, "Disconnected from Custom Tabs Service");
 
                     mSession = null;
                 }
@@ -73,20 +90,20 @@ public class MainActivity extends AppCompatActivity {
 
             CustomTabsClient.bindCustomTabsService(this, CustomTabsHelper.getPackageNameToUse(this), mConnection);
         } else {
-            Log.w(TAG, "bindCustomTabs: mConnection != null");
+            Log.w(TAG, "Cannot bind to Custom Tabs Service, already bound");
         }
     }
 
     private void unbindCustomTabs() {
         if (mConnection != null) {
-            Log.i(TAG, "unbindCustomTabs");
+            Log.v(TAG, "Unbinding from Custom Tabs Service");
 
             unbindService(mConnection);
 
             mSession = null;
             mConnection = null;
         } else {
-            Log.w(TAG, "unbindCustomTabs: mConnection == null");
+            Log.w(TAG, "Cannot unbind from Custom Tabs Service, not bound");
         }
     }
 
@@ -94,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
      * Open wallet URI with Custom Tabs.
      */
     private void openWallet() {
-        Log.i(TAG, "openWallet");
+        Log.v(TAG, "Opening wallet using Custom Tabs");
 
         final CustomTabsIntent intent = new CustomTabsIntent.Builder(mSession)
                 .setToolbarColor(ContextCompat.getColor(this, R.color.primary))
