@@ -1,6 +1,7 @@
 package com.saleemrashid.trezor.bridge;
 
 import android.content.ComponentName;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.customtabs.CustomTabsClient;
@@ -98,8 +99,7 @@ public class MainActivity extends AppCompatActivity {
         final CustomTabsIntent intent = new CustomTabsIntent.Builder(mSession)
                 .setToolbarColor(ContextCompat.getColor(this, R.color.primary))
                 .setShowTitle(true)
-                .setStartAnimations(this, R.anim.slide_in_right, R.anim.slide_out_left)
-                .setExitAnimations(this, android.R.anim.slide_in_left, android.R.anim.slide_out_right)
+                .setCloseButtonIcon(BitmapFactory.decodeResource(getResources(), R.drawable.ic_close_button))
                 .build();
 
         intent.launchUrl(this, WALLET_URI);
