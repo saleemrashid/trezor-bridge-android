@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 534c:0001 SatoshiLabs Bitcoin Wallet [TREZOR] -->
+    <usb-device vendor-id="21324" product-id="1" />
+</resources>
