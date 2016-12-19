@@ -9,13 +9,11 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.ParcelFileDescriptor;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -82,7 +80,7 @@ public class DownloadHelper {
             if (mIdsRemaining.isEmpty()) {
                 Log.i(TAG, "No more downloads remaining");
 
-                final Map<Uri, FileInputStream> streams = new HashMap<>();
+                final Map<Uri, Long> streams = new HashMap<>();
 
                 cursor = mDownloadManager.query(new DownloadManager.Query().setFilterById(mIds));
 
@@ -92,29 +90,15 @@ public class DownloadHelper {
 
                     while (cursor.moveToNext()) {
                         final Uri otherUri = Uri.parse(cursor.getString(columnUri));
+                        final Long otherId = cursor.getLong(columnId);
 
-                        final ParcelFileDescriptor fd;
-                        try {
-                            fd = mDownloadManager.openDownloadedFile(cursor.getInt(columnId));
-                        } catch (FileNotFoundException e) {
-                            callbackToUser(new Runnable() {
-                                @Override
-                                public void run() {
-                                    /* DownloadManager never uses (status = 0) */
-                                    mCallback.onFailure(null, 0);
-                                }
-                            });
-
-                            return;
-                        }
-
-                        streams.put(otherUri, new FileInputStream(fd.getFileDescriptor()));
+                        streams.put(otherUri, otherId);
                     }
 
                     callbackToUser(new Runnable() {
                         @Override
                         public void run() {
-                            mCallback.onComplete(streams);
+                            mCallback.onComplete(mDownloadManager, streams);
                         }
                     });
                 } finally {
@@ -155,7 +139,7 @@ public class DownloadHelper {
             Log.w(TAG, "No URIs provided");
 
             /* Follow normal usage from an external point of view but don't waste time */
-            mCallback.onComplete(Collections.<Uri, FileInputStream>emptyMap());
+            mCallback.onComplete(mDownloadManager, Collections.<Uri, Long>emptyMap());
 
             return;
         }
@@ -188,7 +172,7 @@ public class DownloadHelper {
     }
 
     public static abstract class Callback {
-        public abstract void onComplete(final Map<Uri, FileInputStream> streams);
+        public abstract void onComplete(final DownloadManager downloadManager, final Map<Uri, Long> streams);
 
         public abstract void onFailure(@Nullable final Uri uri, int status);
 

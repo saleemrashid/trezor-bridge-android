@@ -22,10 +22,7 @@ import com.saleemrashid.trezor.bridge.R;
 import com.saleemrashid.trezor.bridge.helpers.DownloadHelper;
 import com.saleemrashid.trezor.bridge.helpers.SSLHelper;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,11 +52,9 @@ public class DaemonService extends Service {
 
         new DownloadHelper(new DownloadHelper.Callback() {
             @Override
-            public void onComplete(Map<Uri, FileInputStream> streams) {
-                final Reader certificateReader = new InputStreamReader(streams.get(SSL_CERTIFICATE_URI));
-                final Reader privateKeyReader = new InputStreamReader(streams.get(SSL_PRIVATE_KEY_URI));
-
-                mSSLSocketFactory = SSLHelper.createFactory(certificateReader, privateKeyReader);
+            public void onComplete(DownloadManager downloadManager, Map<Uri, Long> streams) {
+                mSSLSocketFactory = SSLHelper.createFactory(downloadManager,
+                        streams.get(SSL_CERTIFICATE_URI), streams.get(SSL_PRIVATE_KEY_URI));
 
                 if (mSSLSocketFactory == null) {
                     stopSelf();

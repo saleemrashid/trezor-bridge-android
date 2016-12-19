@@ -1,5 +1,7 @@
 package com.saleemrashid.trezor.bridge.helpers;
 
+import android.app.DownloadManager;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -9,7 +11,10 @@ import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -32,8 +37,8 @@ public class SSLHelper {
 
     private static final String ENTRY_ALIAS = SSLHelper.class.getSimpleName();
 
-    public static SSLServerSocketFactory createFactory(final Reader certificateReader, final Reader privateKeyReader) {
-        final KeyStore store = createKeyStore(certificateReader, privateKeyReader);
+    public static SSLServerSocketFactory createFactory(final Reader certificateReader, final Reader privkeyReader) {
+        final KeyStore store = createKeyStore(certificateReader, privkeyReader);
 
         if (store == null) {
             return null;
@@ -51,7 +56,7 @@ public class SSLHelper {
         }
     }
 
-    public static KeyStore createKeyStore(Reader certificateReader, Reader privateKeyReader) {
+    public static KeyStore createKeyStore(final Reader certificateReader, final Reader privkeyReader) {
         PEMParser parser;
 
         parser = new PEMParser(certificateReader);
@@ -76,7 +81,7 @@ public class SSLHelper {
             return null;
         }
 
-        parser = new PEMParser(privateKeyReader);
+        parser = new PEMParser(privkeyReader);
 
         final PEMKeyPair pair;
         try {
@@ -111,5 +116,43 @@ public class SSLHelper {
         }
 
         return store;
+    }
+
+    public static SSLServerSocketFactory createFactory(final DownloadManager downloadManager, long certificateId, long privkeyId) {
+        final Reader certificateReader = toReader(downloadManager, certificateId);
+        final Reader privkeyReader = toReader(downloadManager, privkeyId);
+
+        try {
+            return createFactory(certificateReader, privkeyReader);
+        } finally {
+            try {
+                if (certificateReader != null) {
+                    certificateReader.close();
+                }
+            } catch (IOException e) {
+                Log.e(TAG, "Could not close certificate reader", e);
+            }
+
+            try {
+                if (privkeyReader != null) {
+                    privkeyReader.close();
+                }
+            } catch (IOException e) {
+                Log.e(TAG, "Could not close private key reader", e);
+            }
+        }
+    }
+
+    private static InputStreamReader toReader(final DownloadManager downloadManager, long downloadId) {
+        final FileInputStream stream;
+        try {
+            stream = new ParcelFileDescriptor.AutoCloseInputStream(downloadManager.openDownloadedFile(downloadId));
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "Could not open downloaded file", e);
+
+            return null;
+        }
+
+        return new InputStreamReader(stream);
     }
 }
