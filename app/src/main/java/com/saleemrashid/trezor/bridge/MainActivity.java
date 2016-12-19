@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.View;
 
 import com.saleemrashid.trezor.bridge.daemon.DaemonService;
+import com.saleemrashid.trezor.bridge.helpers.CustomTabsHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
