@@ -1,7 +1,6 @@
 package com.saleemrashid.trezor.bridge.daemon.handlers;
 
 import com.saleemrashid.trezor.bridge.BuildConfig;
-import com.saleemrashid.trezor.bridge.daemon.DaemonHTTPD;
 
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.NanoHTTPD.Response.Status;
