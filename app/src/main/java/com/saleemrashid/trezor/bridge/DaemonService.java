@@ -15,16 +15,20 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class DaemonService extends Service {
     private static final String TAG = DaemonService.class.getSimpleName();
 
     private BroadcastReceiver mDetachReceiver = null;
 
+    private final Map<String, UsbDevice> mDevices = new HashMap<>();
+
     @Override
     public void onCreate() {
-        Log.v(TAG, "Service created");
-
         super.onCreate();
+        Log.v(TAG, "Service created");
 
         startForeground();
         registerDetachReceiver();
@@ -35,11 +39,12 @@ public class DaemonService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.v(TAG, "Service called (startId is " + startId + ")");
-
         super.onStartCommand(intent, flags, startId);
 
         if (!UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
-            Log.w(TAG, "Action is not ACTION_USB_DEVICE_ATTACHED");
+            Log.e(TAG, "Action is not ACTION_USB_DEVICE_ATTACHED");
+
+            stopIfNoDevices();
 
             return START_NOT_STICKY;
         }
@@ -47,22 +52,71 @@ public class DaemonService extends Service {
         final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
         if (device == null) {
-            Log.w(TAG, "Intent missing EXTRA_DEVICE");
+            Log.e(TAG, "Intent missing EXTRA_DEVICE");
+
+            stopIfNoDevices();
 
             return START_NOT_STICKY;
         }
 
-        /* TODO: Take ownership of the device */
+        registerDevice(device);
 
         return START_STICKY;
     }
 
+    private void registerDevice(final UsbDevice device) {
+        /* If in doubt, always assume `device` is non-stale and `oldDevice` is stale */
+        final UsbDevice oldDevice = mDevices.put(device.getDeviceName(), device);
+
+        /* TODO: These edge cases should never happen, error reporting should be implemented */
+        if (oldDevice == null) {
+            Log.i(TAG, "Registered device: " + device.getDeviceName());
+        } else if (device.equals(oldDevice)) {
+            Log.w(TAG, "Device was already registered: " + device.getDeviceName());
+        } else {
+            /* Overwriting the device is correct as stale devices will cause errors */
+            Log.w(TAG, "Different device of identical name had not been unregistered: " + device.getDeviceName());
+        }
+
+    }
+
+    private boolean isDeviceRegistered(final UsbDevice device) {
+        return mDevices.containsKey(device.getDeviceName());
+    }
+
+    private void unregisterDevice(final UsbDevice device) {
+        /* If in doubt, always assume `device` is non-stale and `oldDevice` is stale */
+        final UsbDevice oldDevice = mDevices.remove(device.getDeviceName());
+
+        /* TODO: These edge cases should never happen, error reporting should be implemented */
+        if (device.equals(oldDevice)) {
+            Log.i(TAG, "Unregistered device: " + device.getDeviceName());
+        } else if (oldDevice == null) {
+            Log.w(TAG, "Device was not registered: " + device.getDeviceName());
+        } else {
+            /* Unregistering the device is correct as stale devices will cause errors */
+            Log.w(TAG, "Different device had been registered, unregistered anyway: " + device.getDeviceName());
+        }
+    }
+
+    /* TODO: What the hell is this name? */
+    private boolean stopIfNoDevices() {
+        if (mDevices.size() == 0) {
+            Log.i(TAG, "No devices are registered, stopping");
+            stopSelf();
+
+            return true;
+        }
+
+        Log.v(TAG, mDevices.size() + " device(s) are registered, not stopping");
+        return false;
+    }
+
     @Override
     public void onDestroy() {
-        Log.v(TAG, "Service destroyed");
-
         unregisterDetachReceiver();
 
+        Log.v(TAG, "Service destroyed");
         super.onDestroy();
     }
 
@@ -78,13 +132,18 @@ public class DaemonService extends Service {
                     final UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 
                     if (device == null) {
-                        Log.w(TAG, "Intent missing EXTRA_DEVICE");
+                        Log.e(TAG, "Intent missing EXTRA_DEVICE");
 
                         return;
                     }
 
-                    /* TODO: Cross match device on list of devices owned by the daemon */
-                    /* TODO: Stop service if device is last device owned by the daemon */
+                    if (isDeviceRegistered(device)) {
+                        unregisterDevice(device);
+
+                        stopIfNoDevices();
+                    } else {
+                        Log.i(TAG, "Device was not registered");
+                    }
                 }
             };
 
