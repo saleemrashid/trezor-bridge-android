@@ -19,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
     private static final Uri WALLET_URI = Uri.parse("https://wallet.trezor.io/");
 
     private CustomTabsSession mSession;
+    private CustomTabsServiceConnection mConnection;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,30 +37,56 @@ public class MainActivity extends AppCompatActivity {
         bindCustomTabs();
     }
 
+    @Override
+    protected void onDestroy() {
+        unbindCustomTabs();
+
+        super.onDestroy();
+    }
+
     /**
      * Bind Custom Tabs and warm up URI.
      */
     private void bindCustomTabs() {
-        final CustomTabsServiceConnection connection = new CustomTabsServiceConnection() {
-            @Override
-            public void onCustomTabsServiceConnected(ComponentName name, CustomTabsClient client) {
-                Log.i(TAG, "onCustomTabsServiceConnected");
+        if (mConnection == null) {
+            Log.i(TAG, "bindCustomTabs");
 
-                client.warmup(0);
+            mConnection = new CustomTabsServiceConnection() {
+                @Override
+                public void onCustomTabsServiceConnected(ComponentName name, CustomTabsClient client) {
+                    Log.i(TAG, "onCustomTabsServiceConnected");
 
-                mSession = client.newSession(null);
-                mSession.mayLaunchUrl(WALLET_URI, null, null);
-            }
+                    client.warmup(0);
 
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                Log.i(TAG, "onServiceDisconnected");
+                    mSession = client.newSession(null);
+                    mSession.mayLaunchUrl(WALLET_URI, null, null);
+                }
 
-                mSession = null;
-            }
-        };
+                @Override
+                public void onServiceDisconnected(ComponentName name) {
+                    Log.i(TAG, "onServiceDisconnected");
 
-        CustomTabsClient.bindCustomTabsService(this, CustomTabsHelper.getPackageNameToUse(this), connection);
+                    mSession = null;
+                }
+            };
+
+            CustomTabsClient.bindCustomTabsService(this, CustomTabsHelper.getPackageNameToUse(this), mConnection);
+        } else {
+            Log.w(TAG, "bindCustomTabs: mConnection != null");
+        }
+    }
+
+    private void unbindCustomTabs() {
+        if (mConnection != null) {
+            Log.i(TAG, "unbindCustomTabs");
+
+            unbindService(mConnection);
+
+            mSession = null;
+            mConnection = null;
+        } else {
+            Log.w(TAG, "unbindCustomTabs: mConnection == null");
+        }
     }
 
     /**
