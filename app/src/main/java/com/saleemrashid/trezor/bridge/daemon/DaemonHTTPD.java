@@ -21,6 +21,9 @@ public class DaemonHTTPD extends RouterNanoHTTPD {
 
     @Override
     public void addMappings() {
+        setNotImplementedHandler(NotImplementedHandler.class);
+        setNotFoundHandler(Error404UriHandler.class);
+
         addRoute("/", IndexRoute.class);
     }
 }

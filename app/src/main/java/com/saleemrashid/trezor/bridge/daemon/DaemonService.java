@@ -23,12 +23,15 @@ import com.saleemrashid.trezor.bridge.helpers.DownloadHelper;
 import com.saleemrashid.trezor.bridge.helpers.SSLHelper;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.net.ssl.SSLServerSocketFactory;
 
 import fi.iki.elonen.NanoHTTPD;
+import okhttp3.Response;
 
 public class DaemonService extends Service {
     private static final String TAG = DaemonService.class.getSimpleName();
@@ -50,11 +53,13 @@ public class DaemonService extends Service {
         super.onCreate();
         Log.v(TAG, "Service created");
 
-        new DownloadHelper(new DownloadHelper.Callback() {
+        DownloadHelper.download(new DownloadHelper.Callback() {
             @Override
-            public void onComplete(DownloadManager downloadManager, Map<Uri, Long> streams) {
-                mSSLSocketFactory = SSLHelper.createFactory(downloadManager,
-                        streams.get(SSL_CERTIFICATE_URI), streams.get(SSL_PRIVATE_KEY_URI));
+            public void onSuccess(Map<Uri, Response> responses) {
+                final Reader certificateReader = new InputStreamReader(responses.get(SSL_CERTIFICATE_URI).body().byteStream());
+                final Reader privkeyReader = new InputStreamReader(responses.get(SSL_PRIVATE_KEY_URI).body().byteStream());
+
+                mSSLSocketFactory = SSLHelper.createFactory(certificateReader, privkeyReader);
 
                 if (mSSLSocketFactory == null) {
                     stopSelf();
@@ -66,12 +71,13 @@ public class DaemonService extends Service {
             }
 
             @Override
-            public void onFailure(@Nullable Uri uri, int status) {
-                Log.e(TAG, "Download failed for URI (" + uri + ") with status " + status);
+            public void onFailure(@Nullable Uri uri, IOException e) {
+                Log.e(TAG, "Download failed for " + uri, e);
 
                 stopSelf();
+
             }
-        }).add(SSL_CERTIFICATE_URI, SSL_PRIVATE_KEY_URI).download(this);
+        }, SSL_CERTIFICATE_URI, SSL_PRIVATE_KEY_URI);
 
         startForeground();
         registerReceiver();

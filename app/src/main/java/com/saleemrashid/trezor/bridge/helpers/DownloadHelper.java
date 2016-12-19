@@ -1,25 +1,17 @@
 package com.saleemrashid.trezor.bridge.helpers;
 
-import android.app.DownloadManager;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
-import android.os.HandlerThread;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 /**
  * Helper for downloading a list of files and failing unless all are successfully downloaded.
@@ -27,157 +19,76 @@ import java.util.Map;
 public class DownloadHelper {
     private static final String TAG = DownloadHelper.class.getSimpleName();
 
-    private final Callback mCallback;
-    private final List<Uri> mUris = new ArrayList<>();
+    /* Prevent instantiation */
+    private DownloadHelper() {}
 
-    private Context mContext;
-    private DownloadManager mDownloadManager;
-    private final HandlerThread mHandlerThread;
+    public static void download(final Callback callback, final Request... requests) {
+        Log.v(TAG, "Starting downloads");
 
-    private long[] mIds;
-    private final HashSet<Long> mIdsRemaining = new HashSet<>();
+        final Handler handler = new Handler();
+        final OkHttpClient client = callback.build();
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-
-            if (!mIdsRemaining.remove(id)) {
-                return;
-            }
-
-            final Uri uri;
-            final int status;
-
-            Cursor cursor = mDownloadManager.query(new DownloadManager.Query().setFilterById(id));
-            try {
-                cursor.moveToFirst();
-
-                uri = Uri.parse(cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_URI)));
-                status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS));
-            } finally {
-                cursor.close();
-            }
-
-            if (status != DownloadManager.STATUS_SUCCESSFUL) {
-                Log.e(TAG, "Downloading " + uri + " failed, status is " + status);
-
-                mDownloadManager.remove(mIds);
-
-                callbackToUser(new Runnable() {
-                    @Override
-                    public void run() {
-                        mCallback.onFailure(uri, status);
-                    }
-                });
-
-                return;
-            }
-
-            Log.i(TAG, "Downloading " + uri + " completed");
-
-            if (mIdsRemaining.isEmpty()) {
-                Log.i(TAG, "No more downloads remaining");
-
-                final Map<Uri, Long> streams = new HashMap<>();
-
-                cursor = mDownloadManager.query(new DownloadManager.Query().setFilterById(mIds));
-
-                try {
-                    int columnId = cursor.getColumnIndex(DownloadManager.COLUMN_ID);
-                    int columnUri = cursor.getColumnIndex(DownloadManager.COLUMN_URI);
-
-                    while (cursor.moveToNext()) {
-                        final Uri otherUri = Uri.parse(cursor.getString(columnUri));
-                        final Long otherId = cursor.getLong(columnId);
-
-                        streams.put(otherUri, otherId);
-                    }
-
-                    callbackToUser(new Runnable() {
-                        @Override
-                        public void run() {
-                            mCallback.onComplete(mDownloadManager, streams);
-                        }
-                    });
-                } finally {
-                    cursor.close();
-                }
-            }
-        }
-    };
-
-    private void callbackToUser(final Runnable runnable) {
-        new Handler(mContext.getMainLooper()).post(new Runnable() {
+        new Thread(new Runnable() {
             @Override
             public void run() {
-                mContext.unregisterReceiver(mReceiver);
-                mHandlerThread.quit();
+                final Map<Uri, Response> responses = new HashMap<>();
 
-                runnable.run();
+                for (final Request request : requests) {
+                    final Uri uri = Uri.parse(request.url().toString());
+
+                    Log.v(TAG, "Downloading " + uri);
+
+                    final Response response;
+                    try {
+                        response = client.newCall(request).execute();
+                    } catch (final IOException e) {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                Log.w(TAG, "Could not download " + uri);
+
+                                callback.onFailure(uri, e);
+                            }
+                        });
+
+                        return;
+                    }
+
+                    Log.i(TAG, "Downloaded " + uri);
+                    responses.put(uri, response);
+                }
+
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.i(TAG, "Downloads complete");
+
+                        callback.onSuccess(responses);
+                    }
+                });
             }
-        });
+        }).start();
     }
 
-    public DownloadHelper(final Callback callback) {
-        mCallback = callback;
+    public static void download(final Callback callback, final Uri... uris) {
+        final Request[] requests = new Request[uris.length];
 
-        mHandlerThread = new HandlerThread(DownloadHelper.class.getSimpleName());
-    }
-
-    public void download(@NonNull final Context context) {
-        Log.i(TAG, "Starting downloads");
-
-        if (mContext != null) {
-            throw new IllegalStateException("Method cannot be called multiple times");
+        for (int i = 0; i < uris.length; i++) {
+            requests[i] = new Request.Builder()
+                    .url(uris[i].toString())
+                    .build();
         }
 
-        mContext = context;
-
-        if (mUris.isEmpty()) {
-            Log.w(TAG, "No URIs provided");
-
-            /* Follow normal usage from an external point of view but don't waste time */
-            mCallback.onComplete(mDownloadManager, Collections.<Uri, Long>emptyMap());
-
-            return;
-        }
-
-        mDownloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
-        mHandlerThread.start();
-
-        final IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-        context.registerReceiver(mReceiver, filter, null, new Handler(mHandlerThread.getLooper()));
-
-        int i = 0;
-        mIds = new long[mUris.size()];
-
-        for (final Uri uri : mUris) {
-            long id = mDownloadManager.enqueue(mCallback.createRequest(uri));
-
-            mIds[i++] = id;
-            mIdsRemaining.add(id);
-        }
-    }
-
-    public DownloadHelper add(final Uri... uris) {
-        if (mContext != null) {
-            throw new IllegalStateException("Method cannot be called after starting download");
-        }
-
-        mUris.addAll(Arrays.asList(uris));
-
-        return this;
+        download(callback, requests);
     }
 
     public static abstract class Callback {
-        public abstract void onComplete(final DownloadManager downloadManager, final Map<Uri, Long> streams);
+        public abstract void onSuccess(final Map<Uri, Response> responses);
 
-        public abstract void onFailure(@Nullable final Uri uri, int status);
+        public abstract void onFailure(@Nullable final Uri uri, final IOException e);
 
-        public DownloadManager.Request createRequest(final Uri uri) {
-            return new DownloadManager.Request(uri)
-                    .setVisibleInDownloadsUi(false);
+        public OkHttpClient build() {
+            return new OkHttpClient();
         }
     }
 }
