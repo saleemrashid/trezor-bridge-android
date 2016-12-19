@@ -17,11 +17,22 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.net.ssl.SSLServerSocketFactory;
+
+import fi.iki.elonen.NanoHTTPD;
+
 public class DaemonService extends Service {
     private static final String TAG = DaemonService.class.getSimpleName();
+
+    public static final String HOSTNAME = null;
+    public static final int PORT = 21324; // 0x543c
 
     public static final Uri SSL_CERTIFICATE_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.crt");
     public static final Uri SSL_PRIVATE_KEY_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.key");
@@ -29,6 +40,8 @@ public class DaemonService extends Service {
     private BroadcastReceiver mReceiver = null;
 
     private final Map<String, UsbDevice> mDevices = new HashMap<>();
+    private final NanoHTTPD mServer = new DaemonHTTPD(HOSTNAME, PORT, mDevices);
+    private SSLServerSocketFactory mSSLSocketFactory;
 
     @Override
     public void onCreate() {
@@ -38,11 +51,27 @@ public class DaemonService extends Service {
         new DownloadHelper(new DownloadHelper.Callback() {
             @Override
             void onComplete(Map<Uri, FileInputStream> streams) {
+                final Reader certificateReader = new InputStreamReader(streams.get(SSL_CERTIFICATE_URI));
+                final Reader privateKeyReader = new InputStreamReader(streams.get(SSL_PRIVATE_KEY_URI));
 
+                mSSLSocketFactory = SSLHelper.createFactory(certificateReader, privateKeyReader);
 
+                if (mSSLSocketFactory == null) {
+                    stopSelf();
 
+                    return;
+                }
 
+                startServer();
+            }
 
+            @Override
+            void onFailure(@Nullable Uri uri, int status) {
+                Log.e(TAG, "Download failed for URI (" + uri + ") with status " + status);
+
+                stopSelf();
+            }
+        }).add(SSL_CERTIFICATE_URI, SSL_PRIVATE_KEY_URI).download(this);
 
         startForeground();
         registerReceiver();
@@ -126,6 +155,7 @@ public class DaemonService extends Service {
 
     @Override
     public void onDestroy() {
+        mServer.stop();
         unregisterDetachReceiver();
 
         Log.v(TAG, "Service destroyed");
@@ -204,6 +234,19 @@ public class DaemonService extends Service {
         notification.flags |= Notification.FLAG_NO_CLEAR;
 
         startForeground(1, notification);
+    }
+
+    private void startServer() {
+        try {
+            mServer.makeSecure(mSSLSocketFactory, null);
+            mServer.start();
+        } catch (IOException e) {
+            Log.e(TAG, "Could not start server", e);
+        }
+    }
+
+    private void stopServer() {
+        mServer.stop();
     }
 
     @Override

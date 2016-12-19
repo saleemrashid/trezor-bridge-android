@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.saleemrashid.trezor.bridge">
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.saleemrashid.trezor.bridge">
 
     <uses-sdk tools:overrideLibrary="android.support.customtabs" />
 
     <uses-feature
         android:name="android.hardware.usb"
         android:required="true" />
+
+    <!-- Required to bind sockets and download certificates -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
