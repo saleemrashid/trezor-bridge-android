@@ -36,7 +36,7 @@
         </activity>
 
         <service
-            android:name=".DaemonService"
+            android:name=".daemon.DaemonService"
             android:enabled="true"
             android:exported="false" />
     </application>

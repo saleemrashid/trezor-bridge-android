@@ -1,4 +1,4 @@
-package com.saleemrashid.trezor.bridge;
+package com.saleemrashid.trezor.bridge.daemon;
 
 import android.app.DownloadManager;
 import android.app.Notification;
@@ -16,6 +16,11 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+
+import com.saleemrashid.trezor.bridge.MainActivity;
+import com.saleemrashid.trezor.bridge.R;
+import com.saleemrashid.trezor.bridge.helpers.DownloadHelper;
+import com.saleemrashid.trezor.bridge.helpers.SSLHelper;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -50,7 +55,7 @@ public class DaemonService extends Service {
 
         new DownloadHelper(new DownloadHelper.Callback() {
             @Override
-            void onComplete(Map<Uri, FileInputStream> streams) {
+            public void onComplete(Map<Uri, FileInputStream> streams) {
                 final Reader certificateReader = new InputStreamReader(streams.get(SSL_CERTIFICATE_URI));
                 final Reader privateKeyReader = new InputStreamReader(streams.get(SSL_PRIVATE_KEY_URI));
 
@@ -66,7 +71,7 @@ public class DaemonService extends Service {
             }
 
             @Override
-            void onFailure(@Nullable Uri uri, int status) {
+            public void onFailure(@Nullable Uri uri, int status) {
                 Log.e(TAG, "Download failed for URI (" + uri + ") with status " + status);
 
                 stopSelf();
@@ -155,8 +160,8 @@ public class DaemonService extends Service {
 
     @Override
     public void onDestroy() {
-        mServer.stop();
-        unregisterDetachReceiver();
+        stopServer();
+        unregisterReceiver();
 
         Log.v(TAG, "Service destroyed");
         super.onDestroy();
@@ -202,7 +207,7 @@ public class DaemonService extends Service {
         }
     }
 
-    private void unregisterDetachReceiver() {
+    private void unregisterReceiver() {
         if (mReceiver != null) {
             Log.v(TAG, "Unregistering BroadcastReceiver");
 
@@ -237,16 +242,36 @@ public class DaemonService extends Service {
     }
 
     private void startServer() {
+        if (mServer.isAlive()) {
+            Log.w(TAG, "Server had already been started");
+
+            return;
+        }
+
         try {
             mServer.makeSecure(mSSLSocketFactory, null);
-            mServer.start();
+
+            /* Shouldn't run as daemon thread */
+            mServer.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
         } catch (IOException e) {
             Log.e(TAG, "Could not start server", e);
         }
     }
 
     private void stopServer() {
-        mServer.stop();
+        if (!mServer.isAlive()) {
+            Log.w(TAG, "Server was not alive");
+
+            return;
+        }
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                /* Closing the socket causes android.os.NetworkOnMainThreadException */
+                mServer.stop();
+            }
+        }).start();
     }
 
     @Override

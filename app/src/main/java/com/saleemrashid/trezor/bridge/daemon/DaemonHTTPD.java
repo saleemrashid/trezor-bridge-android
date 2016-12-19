@@ -1,4 +1,4 @@
-package com.saleemrashid.trezor.bridge;
+package com.saleemrashid.trezor.bridge.daemon;
 
 import android.hardware.usb.UsbDevice;
 

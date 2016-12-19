@@ -1,4 +1,4 @@
-package com.saleemrashid.trezor.bridge;
+package com.saleemrashid.trezor.bridge.helpers;
 
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
@@ -73,7 +73,13 @@ public class DownloadHelper {
                         mCallback.onFailure(uri, status);
                     }
                 });
-            } else if (mIdsRemaining.isEmpty()) {
+
+                return;
+            }
+
+            Log.i(TAG, "Downloading " + uri + " completed");
+
+            if (mIdsRemaining.isEmpty()) {
                 Log.i(TAG, "No more downloads remaining");
 
                 final Map<Uri, FileInputStream> streams = new HashMap<>();
@@ -114,8 +120,6 @@ public class DownloadHelper {
                 } finally {
                     cursor.close();
                 }
-            } else {
-                Log.i(TAG, "Downloading " + uri + " completed");
             }
         }
     };
@@ -139,6 +143,8 @@ public class DownloadHelper {
     }
 
     public void download(@NonNull final Context context) {
+        Log.i(TAG, "Starting downloads");
+
         if (mContext != null) {
             throw new IllegalStateException("Method cannot be called multiple times");
         }
@@ -146,6 +152,8 @@ public class DownloadHelper {
         mContext = context;
 
         if (mUris.isEmpty()) {
+            Log.w(TAG, "No URIs provided");
+
             /* Follow normal usage from an external point of view but don't waste time */
             mCallback.onComplete(Collections.<Uri, FileInputStream>emptyMap());
 
@@ -180,11 +188,11 @@ public class DownloadHelper {
     }
 
     public static abstract class Callback {
-        abstract void onComplete(final Map<Uri, FileInputStream> streams);
+        public abstract void onComplete(final Map<Uri, FileInputStream> streams);
 
-        abstract void onFailure(@Nullable final Uri uri, int status);
+        public abstract void onFailure(@Nullable final Uri uri, int status);
 
-        DownloadManager.Request createRequest(final Uri uri) {
+        public DownloadManager.Request createRequest(final Uri uri) {
             return new DownloadManager.Request(uri)
                     .setVisibleInDownloadsUi(false);
         }
