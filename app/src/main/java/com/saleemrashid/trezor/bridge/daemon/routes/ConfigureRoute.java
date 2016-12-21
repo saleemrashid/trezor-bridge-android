@@ -13,6 +13,7 @@ public class ConfigureRoute extends JsonHandler {
 
     @Override
     public NanoHTTPD.Response get(RouterNanoHTTPD.UriResource uriResource, Map<String, String> urlParams, NanoHTTPD.IHTTPSession session) {
+        /* FIXME: Ideally, it should be possible to selectively implement methods */
         return new NotFoundHandler().get(uriResource, urlParams, session);
     }
 
