@@ -9,6 +9,17 @@ import java.util.Map;
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.router.RouterNanoHTTPD;
 
+/**
+ * <pre>
+ * {@code
+ * {
+ *     "configured": true,
+ *     "validUntil": 1486392333, // Unix timestamp, if configured, else `null`
+ *     "version": "1.2.0",
+ * }
+ * }
+ * </pre>
+ */
 public class IndexRoute extends JsonHandler {
     public static final String URL = "/";
 
