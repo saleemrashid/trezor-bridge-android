@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.protobuf'
 
 android {
     compileSdkVersion 25
@@ -17,10 +18,31 @@ android {
         /* Version of https://github.com/trezor/trezord to pretend to be */
         buildConfigField "String", "TREZOR_BRIDGE_VERSION", '"1.2.0"'
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    sourceSets {
+        main {
+            proto.srcDir "../vendor/trezor-common/protob"
+        }
+    }
+
+    protobuf {
+        plugins {
+            javalite.artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
+        }
+
+        generateProtoTasks {
+            all().each { task ->
+                task.plugins {
+                    javalite {}
+                }
+            }
         }
     }
 }
@@ -48,6 +70,9 @@ dependencies {
 
     /* JSON serialization */
     compile 'com.google.code.gson:gson:2.8.0'
+
+    /* Protocol Buffers */
+    compile 'com.google.protobuf:protobuf-lite:3.0.1'
 
     testCompile 'junit:junit:4.12'
 }
