@@ -17,6 +17,7 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
+import com.saleemrashid.trezor.bridge.BuildConfig;
 import com.saleemrashid.trezor.bridge.MainActivity;
 import com.saleemrashid.trezor.bridge.R;
 import com.saleemrashid.trezor.bridge.helpers.DownloadHelper;
@@ -25,6 +26,8 @@ import com.saleemrashid.trezor.bridge.helpers.SSLHelper;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,16 +39,16 @@ import okhttp3.Response;
 public class DaemonService extends Service {
     private static final String TAG = DaemonService.class.getSimpleName();
 
-    public static final String HOSTNAME = null;
-    public static final int PORT = 21324; // 0x543c
+    public static final String HOST = BuildConfig.SERVER_HOST;
+    public static final int PORT = BuildConfig.SERVER_PORT;
 
-    public static final Uri SSL_CERTIFICATE_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.crt");
-    public static final Uri SSL_PRIVATE_KEY_URI = Uri.parse("https://wallet.trezor.io/data/bridge/cert/server.key");
+    public static final Uri SSL_CERTIFICATE_URI = Uri.parse(BuildConfig.SSL_CERTIFICATE_URL);
+    public static final Uri SSL_PRIVATE_KEY_URI = Uri.parse(BuildConfig.SSL_PRIVATE_KEY_URL);
 
     private BroadcastReceiver mReceiver = null;
 
     private final Map<String, UsbDevice> mDevices = new HashMap<>();
-    private final NanoHTTPD mServer = new DaemonHTTPD(HOSTNAME, PORT, mDevices);
+    private final NanoHTTPD mServer = new DaemonHTTPD(HOST, PORT, mDevices);
     private SSLServerSocketFactory mSSLSocketFactory;
 
     @Override

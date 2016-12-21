@@ -17,6 +17,13 @@ android {
 
         /* Version of https://github.com/trezor/trezord to pretend to be */
         buildConfigField "String", "TREZOR_BRIDGE_VERSION", '"1.2.0"'
+
+        /* FIXME: Should this be resolved using InetAddress.getLocalHost() (throws android.os.NetworkOnMainThreadException) */
+        buildConfigField "String", "SERVER_HOST", '"127.0.0.1"'
+        buildConfigField "int", "SERVER_PORT", "21324" /* 0x543c */
+
+        buildConfigField "String", "SSL_CERTIFICATE_URL", '"https://wallet.trezor.io/data/bridge/cert/server.crt"'
+        buildConfigField "String", "SSL_PRIVATE_KEY_URL", '"https://wallet.trezor.io/data/bridge/cert/server.key"'
     }
 
     buildTypes {
