@@ -1,6 +1,10 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.protobuf'
 
+final VENDOR_DIR = new File(project.projectDir, "../vendor/trezor-common")
+
+final VENDOR_PROTOBUF_DIR = new File(VENDOR_DIR, "protob")
+
 android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
@@ -15,15 +19,19 @@ android {
             useSupportLibrary true
         }
 
+        def buildConfigString = { String name, String value ->
+            buildConfigField "String", name, "\"${StringEscapeUtils.escapeJava(value)}\""
+        }
+
         /* Version of https://github.com/trezor/trezord to pretend to be */
-        buildConfigField "String", "TREZOR_BRIDGE_VERSION", '"1.2.0"'
+        buildConfigString "TREZOR_BRIDGE_VERSION", "1.2.0"
 
         /* FIXME: Should this be resolved using InetAddress.getLocalHost() (throws android.os.NetworkOnMainThreadException) */
-        buildConfigField "String", "SERVER_HOST", '"127.0.0.1"'
+        buildConfigString "SERVER_HOST", "127.0.0.1"
         buildConfigField "int", "SERVER_PORT", "21324" /* 0x543c */
 
-        buildConfigField "String", "SSL_CERTIFICATE_URL", '"https://wallet.trezor.io/data/bridge/cert/server.crt"'
-        buildConfigField "String", "SSL_PRIVATE_KEY_URL", '"https://wallet.trezor.io/data/bridge/cert/server.key"'
+        buildConfigString "SSL_CERTIFICATE_URL", "https://wallet.trezor.io/data/bridge/cert/server.crt"
+        buildConfigString "SSL_PRIVATE_KEY_URL", "https://wallet.trezor.io/data/bridge/cert/server.key"
     }
 
     buildTypes {
@@ -35,7 +43,7 @@ android {
 
     sourceSets {
         main {
-            proto.srcDir "../vendor/trezor-common/protob"
+            proto.srcDir VENDOR_PROTOBUF_DIR
         }
     }
 
