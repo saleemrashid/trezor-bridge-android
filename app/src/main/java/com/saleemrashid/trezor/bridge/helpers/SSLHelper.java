@@ -69,7 +69,7 @@ public class SSLHelper {
             while ((holder = (X509CertificateHolder) parser.readObject()) != null) {
                 certificates.add(converter.getCertificate(holder));
             }
-        } catch (IOException e) {
+        } catch (IOException | ClassCastException e) {
             Log.e(TAG, "Could not parse certificate", e);
 
             return null;
@@ -84,7 +84,7 @@ public class SSLHelper {
         final PEMKeyPair pair;
         try {
             pair = (PEMKeyPair) parser.readObject();
-        } catch (IOException e) {
+        } catch (IOException | ClassCastException e) {
             Log.e(TAG, "Could not parse private key", e);
 
             return null;

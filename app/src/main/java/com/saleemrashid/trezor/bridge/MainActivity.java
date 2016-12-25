@@ -19,6 +19,11 @@ import android.view.View;
 import com.saleemrashid.trezor.bridge.daemon.DaemonService;
 import com.saleemrashid.trezor.bridge.helpers.CustomTabsHelper;
 
+import org.bouncycastle.openssl.PEMParser;
+
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
 

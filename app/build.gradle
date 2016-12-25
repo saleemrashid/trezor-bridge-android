@@ -1,9 +1,20 @@
+import groovy.json.StringEscapeUtils
+
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.protobuf'
 
 final VENDOR_DIR = new File(project.projectDir, "../vendor/trezor-common")
 
+final VENDOR_KEYS_FILE = new File(VENDOR_DIR, "keys/public_trezor1.pem")
 final VENDOR_PROTOBUF_DIR = new File(VENDOR_DIR, "protob")
+
+final PACKAGED_PUBLIC_KEYS_ROOT = new File(project.buildDir, "generated/res/keys")
+
+task packagePublicKeys(type: Copy) {
+    from VENDOR_KEYS_FILE
+    into new File(PACKAGED_PUBLIC_KEYS_ROOT, "raw")
+    rename { "trezor_public_keys.pem" }
+}
 
 android {
     compileSdkVersion 25
@@ -32,6 +43,10 @@ android {
 
         buildConfigString "SSL_CERTIFICATE_URL", "https://wallet.trezor.io/data/bridge/cert/server.crt"
         buildConfigString "SSL_PRIVATE_KEY_URL", "https://wallet.trezor.io/data/bridge/cert/server.key"
+    }
+
+    applicationVariants.all { variant ->
+        variant.registerResGeneratingTask(packagePublicKeys, PACKAGED_PUBLIC_KEYS_ROOT)
     }
 
     buildTypes {
